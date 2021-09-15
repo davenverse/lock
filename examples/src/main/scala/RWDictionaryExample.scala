@@ -23,7 +23,7 @@ object RWDictionaryExample extends IOApp {
 
 class RWDictionary[F[_]: Async](
   val m: TreeMap[String, Int] = new TreeMap[String, Int],
-  val rwlK: ReadWriteLock[Kleisli[F, Unique.Token, *]]
+  val rwlK: ReadWriteLock[({type M[A] = Kleisli[F, Unique.Token, A]})#M]
 ){
   import scala.collection.JavaConverters._
   def getLock: F[ReadWriteLock[F]] = Unique[F].unique.map(t => rwlK.mapK(Kleisli.applyK(t)))

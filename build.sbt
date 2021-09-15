@@ -2,7 +2,7 @@ import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
 
 val Scala213 = "2.13.6"
 
-ThisBuild / crossScalaVersions := Seq("2.12.14", Scala213)
+ThisBuild / crossScalaVersions := Seq("2.12.14", Scala213, "3.0.1")
 ThisBuild / scalaVersion := Scala213
 
 
@@ -16,20 +16,24 @@ ThisBuild / testFrameworks += new TestFramework("munit.Framework")
 lazy val `lock` = project.in(file("."))
   .disablePlugins(MimaPlugin)
   .enablePlugins(NoPublishPlugin)
-  .aggregate(core, examples)
+  .aggregate(core.jvm, core.js, examples)
 
-lazy val core = project.in(file("core"))
-  .settings(
-    name := "lock",
-    libraryDependencies ++= Seq(
-      "org.typelevel"               %%% "cats-core"                  % catsV,
-      "org.typelevel"               %%% "cats-effect"                % catsEffectV,
-      "org.typelevel"               %%% "munit-cats-effect-3"        % munitCatsEffectV         % Test,
+  lazy val core = crossProject(JVMPlatform, JSPlatform)
+    .crossType(CrossType.Pure)
+    .in(file("core"))
+    .settings(
+      name := "lock",
+      libraryDependencies ++= Seq(
+        "org.typelevel"               %%% "cats-core"                  % catsV,
+        "org.typelevel"               %%% "cats-effect"                % catsEffectV,
+        "org.typelevel"               %%% "munit-cats-effect-3"        % munitCatsEffectV         % Test,
+      )
+    ).jsSettings(
+      scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule)},
     )
-  )
 
 lazy val examples = project.in(file("examples"))
-  .dependsOn(core)
+  .dependsOn(core.jvm)
   .disablePlugins(MimaPlugin)
   .enablePlugins(NoPublishPlugin)
   .settings(
@@ -39,7 +43,7 @@ lazy val examples = project.in(file("examples"))
 lazy val site = project.in(file("site"))
   .disablePlugins(MimaPlugin)
   .enablePlugins(DavenverseMicrositePlugin)
-  .dependsOn(core)
+  .dependsOn(core.jvm)
   .settings{
     import microsites._
     Seq(

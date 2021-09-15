@@ -19,7 +19,7 @@ object CachedDataExample extends IOApp {
 class CachedData[F[_]: Async](
   @volatile var cacheValid: Boolean,
   var data: Int,
-  rwlK: ReadWriteLock[Kleisli[F, Unique.Token, *]]
+  rwlK: ReadWriteLock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]
 ){
 
   def processCachedData(use: Int => F[Unit]): F[Unit] = {
