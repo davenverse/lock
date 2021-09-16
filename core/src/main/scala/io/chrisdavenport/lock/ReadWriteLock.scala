@@ -198,6 +198,9 @@ object ReadWriteLock {
     Concurrent[F].ref(State[F](None, Queue.empty, Queue.empty)).map(
       new ReadWriteLockImpl(_)
     )
+  
+  def rentrantUnique[F[_]: Concurrent](lock: ReadWriteLock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]): F[ReadWriteLock[F]] = 
+    Unique[F].unique.map(token => lock.mapK(Kleisli.applyK(token)))
 
   private def fromLocal[A](ioLocal: IOLocal[A]): ({type M[B] = Kleisli[IO, A, B]})#M ~> IO = new (({type M[B] = Kleisli[IO, A, B]})#M ~> IO){
     def apply[B](fa: Kleisli[IO,A,B]): IO[B] = ioLocal.get.flatMap(fa.run(_))

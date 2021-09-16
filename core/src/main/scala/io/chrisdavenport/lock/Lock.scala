@@ -105,6 +105,9 @@ object Lock {
     Ref[F].of(State[F](None, Queue.empty)).map(new KleisliReentrantLock(_))
   }
 
+  def rentrantUnique[F[_]: Concurrent](lock: Lock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]): F[Lock[F]] = 
+    Unique[F].unique.map(token => lock.mapK(Kleisli.applyK(token)))
+
   private def fromLocal[A](ioLocal: IOLocal[A]): ({type M[B] = Kleisli[IO, A, B]})#M ~> IO = new (({type M[B] = Kleisli[IO, A, B]})#M ~> IO){
     def apply[B](fa: Kleisli[IO,A,B]): IO[B] = ioLocal.get.flatMap(fa.run(_))
   }
