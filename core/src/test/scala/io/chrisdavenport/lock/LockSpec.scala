@@ -16,7 +16,7 @@ class LockSpec extends CatsEffectSuite {
     } yield assert(true)
   }
 
-  test("Should not allow others entry"){
+  test("Lock Should not allow others entry"){
     for {
       lK <- Lock.reentrant[IO]
       l1 <- Lock.rentrantUnique(lK)
@@ -26,7 +26,7 @@ class LockSpec extends CatsEffectSuite {
     } yield assertEquals(out, false, "Lock was acquired when it should not be")
   }
 
-  test("Should allow others access after unlock"){
+  test("Lock Should allow others access after unlock"){
     for {
       lK <- Lock.reentrant[IO]
       l1 <- Lock.rentrantUnique(lK)
@@ -38,7 +38,7 @@ class LockSpec extends CatsEffectSuite {
     } yield assertEquals((out1, out2), (false, true))
   }
 
-  test("Should unlock waiters on unlock"){
+  test("Lock Should unlock waiters on unlock"){
     for {
       lK <- Lock.reentrant[IO]
       l1 <- Lock.rentrantUnique(lK)
