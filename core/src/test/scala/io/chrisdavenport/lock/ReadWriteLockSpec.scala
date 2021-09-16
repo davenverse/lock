@@ -48,4 +48,14 @@ class ReadWriteLockSpec extends CatsEffectSuite {
     } yield assertEquals(true, true, "Good if we don't lock above")
   }
 
+  test("ReadWriteLock Write should unlock waiting reads"){
+    for {
+      lK <- ReadWriteLock.reentrant[IO]
+      l1 <- ReadWriteLock.rentrantUnique(lK)
+      l2 <- ReadWriteLock.rentrantUnique(lK)
+      _ <- l1.writeLock.lock
+      out <- (l2.readLock.lock, Temporal[IO].sleep(1.second) >> l1.writeLock.unlock).parTupled
+    } yield assertEquals(true, true, "Good if we don't lock above")
+  }
+
 }

@@ -170,11 +170,11 @@ object ReadWriteLock {
       }
       // Favor Batch Reads on Write Unlocks
       def unlock: Kleisli[F, Unique.Token, Unit] = Kleisli{(token: Unique.Token) => 
-        ref.modify{
-          case State(Some(Current.Write(req)), writes, reads) if req.sameUnique(token) => 
+        ref.modify[F[Unit]]{
+          case s@State(Some(Current.Write(req)), writes, reads) if req.sameUnique(token) => 
             if (reads.nonEmpty){
               State(Current.Reads(reads).some, writes, Queue.empty) -> 
-                reads.traverse(_.complete.void)
+                reads.traverse_(_.complete.void)
             } else writes.dequeueOption match {
               case Some((head, tail)) => 
                 State(Current.Write(head).some, tail, Queue.empty) -> head.complete.void
@@ -184,7 +184,7 @@ object ReadWriteLock {
           case s@State(None, _, _) => s -> new Exception(s"Cannot unlock write lock when no lock is held").raiseError[F, Unit]
           case s@State(Some(Current.Reads(_)), _, _) => s -> new Exception(s"Cannot Unlock Write Lock when Read holds lock").raiseError[F, Unit]
           case s@State(Some(Current.Write(_)), _, _) => s -> new Exception(s"Another Write Holds Lock presently, cannot unlock").raiseError[F, Unit]
-        }
+        }.flatten.uncancelable
       }
       def permit: Resource[({type M[A] = Kleisli[F, Unique.Token, A]})#M, Unit] = Resource.make(lock)(_ =>  unlock)
 
