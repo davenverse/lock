@@ -47,7 +47,7 @@ class RWDictionary[F[_]: Async](
 }
 
 object RWDictionary {
-  def create[F[_]: Async]: F[RWDictionary[F]] = ReadWriteLock.reentrant[F].map(k =>
+  def create[F[_]: Async]: F[RWDictionary[F]] = ReadWriteLock.reentrantUnique[F].map(k =>
     new RWDictionary(new TreeMap[String, Int], k)
   )
 }
