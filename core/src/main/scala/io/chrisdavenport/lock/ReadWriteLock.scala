@@ -18,34 +18,34 @@ trait ReadWriteLock[F[_]]{ self =>
     }
 }
 object ReadWriteLock {
-  private case class Request[F[_]](unique: Unique.Token, gate: Deferred[F, Unit]) {
-    def sameUnique(that: Unique.Token) = that === unique
-    def sameUnique(that: Request[F]) = that.unique === unique
+  private case class Request[F[_], U](unique: U, gate: Deferred[F, Unit]) {
+    def sameUnique(that: U)(implicit E: Eq[U]) = that === unique
+    def sameUnique(that: Request[F, U])(implicit E: Eq[U]) = that.unique === unique
     def wait_ = gate.get
     def complete = gate.complete(())
   }
   private object Request {
-    def create[F[_]: Concurrent](token: Unique.Token): F[Request[F]] = 
-      Deferred[F, Unit].map(Request(token, _))
+    def create[F[_]: Concurrent, U](a: U): F[Request[F, U]] = 
+      Deferred[F, Unit].map(Request(a, _))
   }
 
 
-  private sealed trait Current[F[_]]
+  private sealed trait Current[F[_], U]
   private object Current {
-    case class Reads[F[_]](running: Queue[Request[F]]) extends Current[F]
-    case class Write[F[_]](running: Request[F]) extends Current[F]
+    case class Reads[F[_], U](running: Queue[Request[F, U]]) extends Current[F, U]
+    case class Write[F[_], U](running: Request[F, U]) extends Current[F, U]
   }
-  private case class State[F[_]](
-    current: Option[Current[F]],
-    writeWaiting: Queue[Request[F]],
-    readWaiting: Queue[Request[F]]
+  private case class State[F[_], U](
+    current: Option[Current[F, U]],
+    writeWaiting: Queue[Request[F, U]],
+    readWaiting: Queue[Request[F, U]]
   )
 
-  private class ReadWriteLockImpl[F[_]: Concurrent](ref: Ref[F, State[F]]) extends ReadWriteLock[({type M[A] = Kleisli[F, Unique.Token, A]})#M]{
+  private class ReadWriteLockImpl[F[_]: Concurrent, U: Eq](ref: Ref[F, State[F, U]]) extends ReadWriteLock[({type M[A] = Kleisli[F, U, A]})#M]{
 
-    class ReadLock extends Lock[({type M[A] = Kleisli[F, Unique.Token, A]})#M]{
+    class ReadLock extends Lock[({type M[A] = Kleisli[F, U, A]})#M]{
 
-      def tryLock: Kleisli[F, Unique.Token, Boolean] = Kleisli{(token: Unique.Token) => 
+      def tryLock: Kleisli[F, U, Boolean] = Kleisli{(token: U) => 
         Request.create(token).flatMap{ req => 
           Concurrent[F].uncancelable{(poll: Poll[F]) => 
             ref.modify{
@@ -73,7 +73,7 @@ object ReadWriteLock {
         }
       }
 
-      def lock: Kleisli[F, Unique.Token, Unit] = Kleisli{(token: Unique.Token) => 
+      def lock: Kleisli[F, U, Unit] = Kleisli{(token: U) => 
         Request.create(token).flatMap{ req => 
           Concurrent[F].uncancelable{(poll: Poll[F]) => 
             ref.modify{
@@ -108,7 +108,7 @@ object ReadWriteLock {
         }
       }
       // Unlock out of Reads favors Writes
-      def unlock: Kleisli[F, Unique.Token, Unit] = Kleisli{(token: Unique.Token) => 
+      def unlock: Kleisli[F, U, Unit] = Kleisli{(token: U) => 
         ref.modify{
           case State(Some(Current.Reads(queue)), writes, reads) => 
             val newCurrentRead = queue.filterNot(_.sameUnique(token))
@@ -125,12 +125,12 @@ object ReadWriteLock {
             s -> new Exception(s"No Lock presently, cannot unlock when no lock is held").raiseError[F, Unit]
         }.flatten.uncancelable
       }
-      def permit: Resource[({type M[A] = Kleisli[F, Unique.Token, A]})#M, Unit] = Resource.make(lock)(_ => unlock)
+      def permit: Resource[({type M[A] = Kleisli[F, U, A]})#M, Unit] = Resource.make(lock)(_ => unlock)
       
     }
-    class WriteLock extends Lock[({type M[A] = Kleisli[F, Unique.Token, A]})#M]{
+    class WriteLock extends Lock[({type M[A] = Kleisli[F, U, A]})#M]{
 
-      def tryLock: Kleisli[F, Unique.Token, Boolean] = Kleisli{(token: Unique.Token) => 
+      def tryLock: Kleisli[F, U, Boolean] = Kleisli{(token: U) => 
         Request.create(token).flatMap{ req => 
             ref.modify{
               case State(None, _, _) => 
@@ -145,7 +145,7 @@ object ReadWriteLock {
             .uncancelable
         }
       }
-      def lock: Kleisli[F, Unique.Token, Unit] = Kleisli{(token: Unique.Token) => 
+      def lock: Kleisli[F, U, Unit] = Kleisli{(token: U) => 
         Request.create(token).flatMap{ req => 
           Concurrent[F].uncancelable{(poll: Poll[F]) => 
             ref.modify{
@@ -169,7 +169,7 @@ object ReadWriteLock {
         }
       }
       // Favor Batch Reads on Write Unlocks
-      def unlock: Kleisli[F, Unique.Token, Unit] = Kleisli{(token: Unique.Token) => 
+      def unlock: Kleisli[F, U, Unit] = Kleisli{(token: U) => 
         ref.modify[F[Unit]]{
           case s@State(Some(Current.Write(req)), writes, reads) if req.sameUnique(token) => 
             if (reads.nonEmpty){
@@ -186,7 +186,7 @@ object ReadWriteLock {
           case s@State(Some(Current.Write(_)), _, _) => s -> new Exception(s"Another Write Holds Lock presently, cannot unlock").raiseError[F, Unit]
         }.flatten.uncancelable
       }
-      def permit: Resource[({type M[A] = Kleisli[F, Unique.Token, A]})#M, Unit] = Resource.make(lock)(_ =>  unlock)
+      def permit: Resource[({type M[A] = Kleisli[F, U, A]})#M, Unit] = Resource.make(lock)(_ =>  unlock)
 
     }
     val readLock = new ReadLock
@@ -194,19 +194,22 @@ object ReadWriteLock {
 
   }
 
-  def reentrant[F[_]: Concurrent]: F[ReadWriteLock[({type M[A] = Kleisli[F, Unique.Token, A]})#M]] = 
-    Concurrent[F].ref(State[F](None, Queue.empty, Queue.empty)).map(
+  def reentrant[F[_]: Concurrent, U: Eq]: F[ReadWriteLock[({type M[A] = Kleisli[F, U, A]})#M]] = 
+    Concurrent[F].ref(State[F, U](None, Queue.empty, Queue.empty)).map(
       new ReadWriteLockImpl(_)
     )
+
+  def reentrantUnique[F[_]: Concurrent]: F[ReadWriteLock[({type M[A] = Kleisli[F, Unique.Token, A]})#M]] = 
+    reentrant[F, Unique.Token]
   
-  def rentrantUnique[F[_]: Concurrent](lock: ReadWriteLock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]): F[ReadWriteLock[F]] = 
+  def reentrantBuildUnique[F[_]: Concurrent](lock: ReadWriteLock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]): F[ReadWriteLock[F]] = 
     Unique[F].unique.map(token => lock.mapK(Kleisli.applyK(token)))
 
   private def fromLocal[A](ioLocal: IOLocal[A]): ({type M[B] = Kleisli[IO, A, B]})#M ~> IO = new (({type M[B] = Kleisli[IO, A, B]})#M ~> IO){
     def apply[B](fa: Kleisli[IO,A,B]): IO[B] = ioLocal.get.flatMap(fa.run(_))
   }
   
-  def ioLocal(ioLocal: IOLocal[Unique.Token]): IO[ReadWriteLock[IO]] = reentrant[IO].map(rwLockK => 
+  def ioLocal[U: Eq](ioLocal: IOLocal[U]): IO[ReadWriteLock[IO]] = reentrant[IO, U].map(rwLockK => 
     rwLockK.mapK(fromLocal(ioLocal))
   )
 
