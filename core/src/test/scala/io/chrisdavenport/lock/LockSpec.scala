@@ -10,17 +10,17 @@ class LockSpec extends CatsEffectSuite {
 
   test("Lock Should Allow Re-entry") {
     for {
-      lK <- Lock.reentrant[IO]
-      l1 <- Lock.rentrantUnique(lK)
+      lK <- Lock.reentrantUnique[IO]
+      l1 <- Lock.reentrantBuildUnique(lK)
       _ <- l1.lock >> l1.lock >> l1.lock
     } yield assert(true)
   }
 
   test("Lock Should not allow others entry"){
     for {
-      lK <- Lock.reentrant[IO]
-      l1 <- Lock.rentrantUnique(lK)
-      l2 <- Lock.rentrantUnique(lK)
+      lK <- Lock.reentrantUnique[IO]
+      l1 <- Lock.reentrantBuildUnique(lK)
+      l2 <- Lock.reentrantBuildUnique(lK)
       _ <- l1.lock
       out <- l2.tryLock
     } yield assertEquals(out, false, "Lock was acquired when it should not be")
@@ -28,9 +28,9 @@ class LockSpec extends CatsEffectSuite {
 
   test("Lock Should allow others access after unlock"){
     for {
-      lK <- Lock.reentrant[IO]
-      l1 <- Lock.rentrantUnique(lK)
-      l2 <- Lock.rentrantUnique(lK)
+      lK <- Lock.reentrantUnique[IO]
+      l1 <- Lock.reentrantBuildUnique(lK)
+      l2 <- Lock.reentrantBuildUnique(lK)
       _ <- l1.lock
       out1 <- l2.tryLock
       _ <- l1.unlock
@@ -40,9 +40,9 @@ class LockSpec extends CatsEffectSuite {
 
   test("Lock Should unlock waiters on unlock"){
     for {
-      lK <- Lock.reentrant[IO]
-      l1 <- Lock.rentrantUnique(lK)
-      l2 <- Lock.rentrantUnique(lK)
+      lK <- Lock.reentrantUnique[IO]
+      l1 <- Lock.reentrantBuildUnique(lK)
+      l2 <- Lock.reentrantBuildUnique(lK)
       _ <- l1.lock
       out <- (l2.lock, Temporal[IO].sleep(1.second) >> l1.unlock).parTupled
     } yield assertEquals(true, true, "Good if we don't lock above")

@@ -34,24 +34,24 @@ object Lock {
     }
 
 
-  private case class Request[F[_]](unique: Unique.Token, gate: Deferred[F, Unit]) {
-    def sameUnique(that: Unique.Token) = that === unique
-    def sameUnique(that: Request[F]) = that.unique === unique
+  private case class Request[F[_], U](unique: U, gate: Deferred[F, Unit]) {
+    def sameUnique(that: U)(implicit ev: Eq[U]) = that === unique
+    def sameUnique(that: Request[F, U])(implicit ev: Eq[U]) = that.unique === unique
     def wait_ = gate.get
     def complete = gate.complete(())
   }
   private object Request {
-    def create[F[_]: Concurrent](token: Unique.Token): F[Request[F]] = 
+    def create[F[_]: Concurrent, U](token: U): F[Request[F, U]] = 
       Deferred[F, Unit].map(Request(token, _))
   }
   
 
   import scala.collection.immutable.Queue
-  private case class State[F[_]](current: Option[Request[F]], waiting: Queue[Request[F]])
+  private case class State[F[_], U](current: Option[Request[F, U]], waiting: Queue[Request[F, U]])
 
-  private class KleisliReentrantLock[F[_]: Concurrent](ref: Ref[F, State[F]]) extends Lock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]{
+  private class KleisliReentrantLock[F[_]: Concurrent, U: Eq](ref: Ref[F, State[F, U]]) extends Lock[({ type M[A] = Kleisli[F, U, A]})#M]{
 
-    def tryLock: Kleisli[F,Unique.Token,Boolean] = Kleisli{(token: Unique.Token) => 
+    def tryLock: Kleisli[F,U,Boolean] = Kleisli{(token: U) => 
       Request.create(token).flatMap{request =>
         ref.modify{
           case s@State(Some(main), waiting) => 
@@ -62,7 +62,7 @@ object Lock {
       }
     }.uncancelable
 
-    def lock: Kleisli[F, Unique.Token, Unit] = Kleisli{(token: Unique.Token) => 
+    def lock: Kleisli[F, U, Unit] = Kleisli{(token: U) => 
       Concurrent[F].uncancelable{ (poll: Poll[F]) => 
         Request.create(token).flatMap{request =>
           ref.modify{
@@ -84,7 +84,7 @@ object Lock {
       }
     }
 
-    def unlock: Kleisli[F, Unique.Token, Unit] = Kleisli{(token: Unique.Token) => 
+    def unlock: Kleisli[F, U, Unit] = Kleisli{(token: U) => 
         ref.modify{
           case State(Some(current), waiters) if current.sameUnique(token) => 
             waiters.dequeueOption match {
@@ -97,22 +97,25 @@ object Lock {
         }.flatten.uncancelable
     }
 
-    def permit: Resource[({type M[A] = Kleisli[F, Unique.Token, A]})#M, Unit] = 
+    def permit: Resource[({type M[A] = Kleisli[F, U, A]})#M, Unit] = 
       Resource.make(lock)(_ => unlock)
   }
 
-  def reentrant[F[_]: Concurrent]: F[Lock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]] = {
-    Ref[F].of(State[F](None, Queue.empty)).map(new KleisliReentrantLock(_))
+  def reentrant[F[_]: Concurrent, U: Eq]: F[Lock[({ type M[A] = Kleisli[F, U, A]})#M]] = {
+    Ref[F].of(State[F, U](None, Queue.empty)).map(new KleisliReentrantLock(_))
   }
 
-  def rentrantUnique[F[_]: Concurrent](lock: Lock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]): F[Lock[F]] = 
+  def reentrantUnique[F[_]: Concurrent]: F[Lock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]] =
+    reentrant[F, Unique.Token]
+    
+  def reentrantBuildUnique[F[_]: Concurrent](lock: Lock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]): F[Lock[F]] = 
     Unique[F].unique.map(token => lock.mapK(Kleisli.applyK(token)))
 
   private def fromLocal[A](ioLocal: IOLocal[A]): ({type M[B] = Kleisli[IO, A, B]})#M ~> IO = new (({type M[B] = Kleisli[IO, A, B]})#M ~> IO){
     def apply[B](fa: Kleisli[IO,A,B]): IO[B] = ioLocal.get.flatMap(fa.run(_))
   }
 
-  def ioLocal(ioLocal: IOLocal[Unique.Token]): IO[Lock[IO]] = reentrant[IO].map(rwLockK => 
+  def ioLocal[U: Eq](ioLocal: IOLocal[U]): IO[Lock[IO]] = reentrant[IO, U].map(rwLockK => 
     rwLockK.mapK(fromLocal(ioLocal))
   )
 

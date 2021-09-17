@@ -6,7 +6,7 @@ import io.chrisdavenport.lock._
 object ReadWriteLockExample extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
-    ReadWriteLock.reentrant[IO].flatMap(rwlockK => 
+    ReadWriteLock.reentrantUnique[IO].flatMap(rwlockK => 
       (Unique[IO].unique, Unique[IO].unique).tupled.flatMap{ case (u1, u2) => 
         val rwLock1 = rwlockK.mapK(Kleisli.applyK(u1))
         val rwLock2 = rwlockK.mapK(Kleisli.applyK(u2))

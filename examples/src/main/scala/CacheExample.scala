@@ -46,7 +46,7 @@ class CachedData[F[_]: Async](
 }
 
 object CachedData {
-  def create[F[_]: Async] = ReadWriteLock.reentrant[F].map(new CachedData[F](false, 1, _))
+  def create[F[_]: Async] = ReadWriteLock.reentrantUnique[F].map(new CachedData[F](false, 1, _))
 }
 
 
