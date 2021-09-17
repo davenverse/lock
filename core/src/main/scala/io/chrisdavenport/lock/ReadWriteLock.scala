@@ -207,6 +207,8 @@ object ReadWriteLock {
   def reentrantBuildUnique[F[_]: Concurrent](lock: ReadWriteLock[({ type M[A] = Kleisli[F, Unique.Token, A]})#M]): F[ReadWriteLock[F]] = 
     Unique[F].unique.map(token => lock.mapK(Kleisli.applyK(token)))
 
+  // No two values will share the same unique.
+  // So no reentrancy is allowed.
   def simple[F[_]: Concurrent]: F[ReadWriteLock[F]] = reentrantUnique.map(
     k => k.mapK(new (({ type M[A] = Kleisli[F, Unique.Token, A]})#M ~> F){
       def apply[A](fa: Kleisli[F, Unique.Token, A]): F[A] = Unique[F].unique.flatMap(u => fa.run(u))
