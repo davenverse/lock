@@ -60,9 +60,9 @@ class ReadWriteLockSpec extends CatsEffectSuite {
 
   test("ReadWriteLock Write Downgrade lock is still held"){
     for {
-      lK <- ReadWriteLock.reentrant[IO]
-      l1 <- ReadWriteLock.rentrantUnique(lK)
-      l2 <- ReadWriteLock.rentrantUnique(lK)
+      lK <- ReadWriteLock.reentrantUnique[IO]
+      l1 <- ReadWriteLock.reentrantBuildUnique(lK)
+      l2 <- ReadWriteLock.reentrantBuildUnique(lK)
       _ <- l1.writeLock.lock
       out1 <- l2.writeLock.tryLock
       _ <- l1.readLock.lock 
@@ -73,9 +73,9 @@ class ReadWriteLockSpec extends CatsEffectSuite {
 
   test("ReadWriteLock Write Downgrade lock is still held, but allows readers"){
     for {
-      lK <- ReadWriteLock.reentrant[IO]
-      l1 <- ReadWriteLock.rentrantUnique(lK)
-      l2 <- ReadWriteLock.rentrantUnique(lK)
+      lK <- ReadWriteLock.reentrantUnique[IO]
+      l1 <- ReadWriteLock.reentrantBuildUnique(lK)
+      l2 <- ReadWriteLock.reentrantBuildUnique(lK)
       _ <- l1.writeLock.lock
       out1 <- l2.readLock.tryLock
       _ <- l1.readLock.lock 
@@ -86,9 +86,9 @@ class ReadWriteLockSpec extends CatsEffectSuite {
 
   test("ReadWriteLock Read Lock allows additional readers"){
     for {
-      lK <- ReadWriteLock.reentrant[IO]
-      l1 <- ReadWriteLock.rentrantUnique(lK)
-      l2 <- ReadWriteLock.rentrantUnique(lK)
+      lK <- ReadWriteLock.reentrantUnique[IO]
+      l1 <- ReadWriteLock.reentrantBuildUnique(lK)
+      l2 <- ReadWriteLock.reentrantBuildUnique(lK)
       _ <- l1.readLock.lock
       out <- l2.readLock.tryLock
     } yield assertEquals(out, true)
@@ -96,8 +96,8 @@ class ReadWriteLockSpec extends CatsEffectSuite {
 
   test("ReadWriteLock Read Lock is reentrant"){
     for {
-      lK <- ReadWriteLock.reentrant[IO]
-      l1 <- ReadWriteLock.rentrantUnique(lK)
+      lK <- ReadWriteLock.reentrantUnique[IO]
+      l1 <- ReadWriteLock.reentrantBuildUnique(lK)
       _ <- l1.readLock.lock
       out <- l1.readLock.tryLock
     } yield assertEquals(out, true)
@@ -105,9 +105,9 @@ class ReadWriteLockSpec extends CatsEffectSuite {
 
   test("ReadWriteLock ReadLock will wake write wait"){
     for {
-      lK <- ReadWriteLock.reentrant[IO]
-      l1 <- ReadWriteLock.rentrantUnique(lK)
-      l2 <- ReadWriteLock.rentrantUnique(lK)
+      lK <- ReadWriteLock.reentrantUnique[IO]
+      l1 <- ReadWriteLock.reentrantBuildUnique(lK)
+      l2 <- ReadWriteLock.reentrantBuildUnique(lK)
       _ <- l1.readLock.lock
       _ <- (l2.writeLock.lock, Temporal[IO].sleep(100.millis) >> l1.readLock.unlock).parTupled
     } yield assertEquals(true, true, "If we get here we're not block")

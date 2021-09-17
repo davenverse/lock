@@ -6,7 +6,6 @@ ThisBuild / crossScalaVersions := Seq("2.12.14", Scala213, "3.0.2")
 ThisBuild / scalaVersion := Scala213
 
 ThisBuild / githubWorkflowBuild := Seq(WorkflowStep.Sbt(List("clean", "test", "mimaReportBinaryIssues")))
-ThisBuild / githubWorkflowUseSbtThinClient := false
 
 val catsV = "2.6.1"
 val catsEffectV = "3.2.8"

@@ -62,9 +62,9 @@ jobs:
           gem install jekyll -v 4.2.0
 
       - name: Check that workflows are up to date
-        run: sbt ++${{ matrix.scala }} githubWorkflowCheck
+        run: sbt --client '++${{ matrix.scala }}; githubWorkflowCheck'
 
-      - run: sbt ++${{ matrix.scala }} clean test mimaReportBinaryIssues
+      - run: sbt --client '++${{ matrix.scala }}; clean; test; mimaReportBinaryIssues'
 
   publish:
     name: Publish Artifacts
@@ -117,9 +117,9 @@ jobs:
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-        run: sbt ++${{ matrix.scala }} ci-release
+        run: sbt --client '++${{ matrix.scala }}; ci-release'
 
       - uses: christopherdavenport/create-ghpages-ifnotexists@v1
 
       - name: Publish microsite
-        run: sbt ++${{ matrix.scala }} site/publishMicrosite
+        run: sbt --client '++${{ matrix.scala }}; site/publishMicrosite'
