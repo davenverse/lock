@@ -1,6 +1,6 @@
 # lock - Locks for Cats-Effect [![Build Status](https://travis-ci.com/ChristopherDavenport/lock.svg?branch=master)](https://travis-ci.com/ChristopherDavenport/lock) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.chrisdavenport/lock_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.chrisdavenport/lock_2.12) ![Code of Consuct](https://img.shields.io/badge/Code%20of%20Conduct-Scala-blue.svg)
 
-## [Head on over to the microsite](https://ChristopherDavenport.github.io/lock)
+## [Head on over to the microsite](https://davenverse.github.io/lock)
 
 ## Quick Start
 
