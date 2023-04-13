@@ -8,7 +8,7 @@ ThisBuild / scalaVersion := Scala213
 ThisBuild / githubWorkflowBuild := Seq(WorkflowStep.Sbt(List("clean", "test", "mimaReportBinaryIssues")))
 
 val catsV = "2.6.1"
-val catsEffectV = "3.2.8"
+val catsEffectV = "3.2.9"
 val munitCatsEffectV = "1.0.5"
 
 ThisBuild / testFrameworks += new TestFramework("munit.Framework")
