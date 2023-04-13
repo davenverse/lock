@@ -7,7 +7,7 @@ ThisBuild / scalaVersion := Scala213
 
 ThisBuild / githubWorkflowBuild := Seq(WorkflowStep.Sbt(List("clean", "test", "mimaReportBinaryIssues")))
 
-val catsV = "2.6.1"
+val catsV = "2.9.0"
 val catsEffectV = "3.2.8"
 val munitCatsEffectV = "1.0.5"
 
