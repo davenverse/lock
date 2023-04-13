@@ -9,7 +9,7 @@ ThisBuild / githubWorkflowBuild := Seq(WorkflowStep.Sbt(List("clean", "test", "m
 
 val catsV = "2.6.1"
 val catsEffectV = "3.2.8"
-val munitCatsEffectV = "1.0.5"
+val munitCatsEffectV = "1.0.7"
 
 ThisBuild / testFrameworks += new TestFramework("munit.Framework")
 
