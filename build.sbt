@@ -1,9 +1,40 @@
-import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
+ThisBuild / tlBaseVersion := "0.1" // current series x.y
+
+ThisBuild / organization := "io.chrisdavenport"
+ThisBuild / organizationName := "Christopher Davenport"
+ThisBuild / startYear := Some(2021)
+ThisBuild / licenses := Seq(License.MIT)
+ThisBuild / developers := List(
+  tlGitHubDev("christopherdavenport", "Christopher Davenport")
+)
+
+// sbt-davenverse published a snapshot from main on every push; preserve that.
+ThisBuild / tlCiReleaseBranches := Seq("main")
+
+val Scala213tl = "2.13.18"
+ThisBuild / crossScalaVersions := Seq("2.12.20", Scala213tl, "3.3.8")
+ThisBuild / scalaVersion := Scala213tl
+
+// Compiler settings DavenversePlugin injected globally. sbt-typelevel-ci-release
+// does not supply these (only sbt-typelevel-settings would). Scoped to ThisBuild
+// so every project picks them up without editing each one.
+ThisBuild / libraryDependencies ++= (CrossVersion.partialVersion(scalaVersion.value) match {
+  case Some((2, _)) =>
+    Seq(
+      compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full),
+      compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
+    )
+  case _ => Nil
+})
+ThisBuild / scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
+  case Some((3, _)) => Seq("-Ykind-projector")
+  case Some((2, 12)) => Seq("-Ypartial-unification")
+  case _ => Nil
+})
+
 
 val Scala213 = "2.13.6"
 
-ThisBuild / crossScalaVersions := Seq("2.12.14", Scala213, "3.0.2")
-ThisBuild / scalaVersion := Scala213
 
 ThisBuild / githubWorkflowBuild := Seq(WorkflowStep.Sbt(List("clean", "test", "mimaReportBinaryIssues")))
 
@@ -15,8 +46,7 @@ ThisBuild / testFrameworks += new TestFramework("munit.Framework")
 
 // Projects
 lazy val `lock` = project.in(file("."))
-  .disablePlugins(MimaPlugin)
-  .enablePlugins(NoPublishPlugin)
+    .enablePlugins(NoPublishPlugin)
   .aggregate(core.jvm, core.js, examples)
 
   lazy val core = crossProject(JVMPlatform, JSPlatform)
@@ -35,19 +65,22 @@ lazy val `lock` = project.in(file("."))
 
 lazy val examples = project.in(file("examples"))
   .dependsOn(core.jvm)
-  .disablePlugins(MimaPlugin)
-  .enablePlugins(NoPublishPlugin)
+    .enablePlugins(NoPublishPlugin)
   .settings(
     name := "lock-examples"
   )
 
 lazy val site = project.in(file("site"))
-  .disablePlugins(MimaPlugin)
-  .enablePlugins(DavenverseMicrositePlugin)
+    .enablePlugins(TypelevelSitePlugin)
+  .settings(
+    laikaTheme := tlSiteHelium.value.site
+      .topNavigationBar(
+        homeLink = laika.helium.config.IconLink.internal(laika.ast.Path.Root / "index.md", laika.helium.config.HeliumIcon.home)
+      )
+      .build
+  )
   .dependsOn(core.jvm)
   .settings{
-    import microsites._
     Seq(
-      micrositeDescription := "Locks for Cats-Effect",
     )
   }
